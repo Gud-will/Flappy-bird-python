@@ -8,11 +8,15 @@ class Linear_QNet(nn.Module):
     def __init__(self, input_size, hidden_size, output_size):
         super().__init__()
         self.linear1 = nn.Linear(input_size, hidden_size)
-        self.linear2 = nn.Linear(hidden_size, output_size)
+        self.linear2 = nn.Linear(hidden_size, hidden_size)
+        self.linear3 = nn.Linear(hidden_size, hidden_size//2)
+        self.linear4 = nn.Linear(hidden_size//2, output_size)
 
     def forward(self, x):
         x = F.relu(self.linear1(x))
-        x = self.linear2(x)
+        x = F.relu(self.linear2(x))
+        x = F.relu(self.linear3(x))
+        x = self.linear4(x)
         return x
 
     def save(self, file_name='model2.pth'):
@@ -30,9 +34,14 @@ class QTrainer:
         self.gamma = gamma
         self.model = model
         self.optimizer = optim.Adam(model.parameters(), lr=self.lr)
-        self.criterion = nn.MSELoss()
-
-    def train_step(self, state, action, reward, next_state, done):
+        self.criterion = nn.BCEWithLogitsLoss()
+        self.load()
+    def load(self,file_name='model2.pth'):
+        model_folder_path = './model'
+        file_name = os.path.join(model_folder_path, file_name)
+        self.model.load_state_dict(torch.load(file_name))
+        print("Done Loading")
+    def train_step(self,state, action, reward, next_state, done):
         state = torch.tensor(state, dtype=torch.float)
         next_state = torch.tensor(next_state, dtype=torch.float)
         action = torch.tensor(action, dtype=torch.long)
@@ -49,7 +58,6 @@ class QTrainer:
 
         # 1: predicted Q values with current state
         pred = self.model(state)
-
         target = pred.clone()
         for idx in range(len(done)):
             Q_new = reward[idx]
@@ -57,7 +65,6 @@ class QTrainer:
                 Q_new = reward[idx] + self.gamma * torch.max(self.model(next_state[idx]))
 
             target[idx][torch.argmax(action[idx]).item()] = Q_new
-    
         # 2: Q_new = r + y * max(next_predicted Q value) -> only do this if not done
         # pred.clone()
         # preds[argmax(action)] = Q_new
@@ -65,4 +72,22 @@ class QTrainer:
         loss = self.criterion(target, pred)
         loss.backward()
 
+        self.optimizer.step()
+    def accuracy_fn(self,y_true, y_pred):
+        correct = torch.eq(y_true, y_pred).sum().item() # torch.eq() calculates where two tensors are equal
+        acc = (correct / len(y_pred)) * 100 
+        return acc
+    def train_supervised(self,state,target):
+        state = torch.tensor(state, dtype=torch.float)
+        target = torch.tensor(target, dtype=torch.float)
+        print('state shape',state[0].shape)
+        print('target shape',target[0].shape)
+        pred = self.model(state).squeeze()
+        print('pred',pred[0])
+        print('pred shape',pred[0].shape)
+        self.optimizer.zero_grad()
+        loss = self.criterion(target, pred)
+        print(loss)
+        print(self.accuracy_fn(torch.round(torch.sigmoid(pred)),target))
+        loss.backward()
         self.optimizer.step()

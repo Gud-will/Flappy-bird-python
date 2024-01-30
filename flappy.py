@@ -2,6 +2,7 @@ import pygame, random, time
 from pygame.locals import *
 import numpy as np
 from time import sleep
+import pickle
 
 #VARIABLES
 SCREEN_WIDHT = 400
@@ -23,7 +24,8 @@ hit = 'assets/audio/hit.wav'
 
 pygame.mixer.init()
 
-
+player_action=[]
+player_state=[]
 class Bird(pygame.sprite.Sprite):
 
     def __init__(self):
@@ -143,11 +145,11 @@ class FlappyGameAi():
             self.pipe_group.add(pipes[1])
 
     def play_step(self,action):
-        if np.array_equal(action,[1,0]):
+        if action==0:
             self.bird.bump()
             # pygame.mixer.music.load(wing)
             # pygame.mixer.music.play()
-        reward=0
+        reward=1
         game_over=False
         self.screen.blit(self.BACKGROUND, (0, 0))
         # SCREEN_WIDHT / 6
@@ -232,52 +234,91 @@ clock = pygame.time.Clock()
 #     ground_group.draw(screen)
 
 #     pygame.display.update()
+def get_state(game):
+    bird_x =  game.bird_group.sprites()[0].rect[0]+game.bird_group.sprites()[0].rect[2]
+    bird_y =  game.bird_group.sprites()[0].rect[1]
+    pipe_1_x= game.pipe_group.sprites()[0].rect[0]
+    pipe_1_y= game.pipe_group.sprites()[0].rect[1]
+    pipe_2_x= game.pipe_group.sprites()[1].rect[0]
+    pipe_2_y= game.pipe_group.sprites()[1].rect[1]+game.pipe_group.sprites()[1].rect[3]
+    state = [
+        bird_y<pipe_1_y,
+        bird_y>pipe_2_y, 
+        bird_x,
+        bird_y,
+        pipe_1_x,
+        pipe_1_y,
+        pipe_2_x,
+        pipe_2_y
+        ]
+    return np.array(state)
+if __name__=='__main__':
+    g=FlappyGameAi()
+    while True:
+        clock.tick(15)
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                pygame.quit()
+            if event.type == KEYDOWN:
+                if event.key == K_SPACE or event.key == K_UP:
+                    temp=get_state(g)
+                    _,game,_=g.play_step(0)
+                    player_action.append(0)
+                    player_state.append(temp)
+                    if game:
+                        print(len(player_action))
+                        pygame.quit()
+                        break
+                    pygame.mixer.music.load(wing)
+                    pygame.mixer.music.play()
+        temp=get_state(g)
+        _,game,_=g.play_step(1)
+        player_action.append(1)
+        player_state.append(temp)
+        if game:
+                        print(len(player_action))
+                        pygame.quit()
+                        break
 
-# g=FlappyGameAi()
-# while True:
+    # print(len(player_action))
+    with open('player_moves.pkl', 'wb') as outp:
+        pickle.dump(player_action, outp)
+        pickle.dump(player_state, outp)
+        print(len(player_action),'action')
+        print(len(player_state),'state')
 
-#     clock.tick(15)
-#     for event in pygame.event.get():
-#         if event.type == QUIT:
-#             pygame.quit()
-#         if event.type == KEYDOWN:
-#             if event.key == K_SPACE or event.key == K_UP:
-#                 _,game,_=g.play_step([1,0])
-#                 if game==True:
-#                     break
-#                 pygame.mixer.music.load(wing)
-#                 pygame.mixer.music.play()
-#     _,game,_=g.play_step([0,1])
+    with open('player_moves.pkl', 'rb') as inp:
+        player_action_copy = pickle.load(inp)
+        print(len(player_action_copy))  
 
-#     # if is_off_screen(ground_group.sprites()[0]):
-#     #     ground_group.remove(ground_group.sprites()[0])
+    # if is_off_screen(ground_group.sprites()[0]):
+    #     ground_group.remove(ground_group.sprites()[0])
 
-#     #     new_ground = Ground(GROUND_WIDHT - 20)
-#     #     ground_group.add(new_ground)
+    #     new_ground = Ground(GROUND_WIDHT - 20)
+    #     ground_group.add(new_ground)
 
-#     # if is_off_screen(pipe_group.sprites()[0]):
-#     #     pipe_group.remove(pipe_group.sprites()[0])
-#     #     pipe_group.remove(pipe_group.sprites()[0])
+    # if is_off_screen(pipe_group.sprites()[0]):
+    #     pipe_group.remove(pipe_group.sprites()[0])
+    #     pipe_group.remove(pipe_group.sprites()[0])
 
-#     #     pipes = get_random_pipes(SCREEN_WIDHT * 2)
+    #     pipes = get_random_pipes(SCREEN_WIDHT * 2)
 
-#     #     pipe_group.add(pipes[0])
-#     #     pipe_group.add(pipes[1])
+    #     pipe_group.add(pipes[0])
+    #     pipe_group.add(pipes[1])
 
-#     # bird_group.update()
-#     # ground_group.update()
-#     # pipe_group.update()
+    # bird_group.update()
+    # ground_group.update()
+    # pipe_group.update()
 
-#     # bird_group.draw(screen)
-#     # pipe_group.draw(screen)
-#     # ground_group.draw(screen)
+    # bird_group.draw(screen)
+    # pipe_group.draw(screen)
+    # ground_group.draw(screen)
 
-#     # pygame.display.update()
+    # pygame.display.update()
 
-#     # if (pygame.sprite.groupcollide(bird_group, ground_group, False, False, pygame.sprite.collide_mask) or
-#     #         pygame.sprite.groupcollide(bird_group, pipe_group, False, False, pygame.sprite.collide_mask)):
-#     #     pygame.mixer.music.load(hit)
-#     #     pygame.mixer.music.play()
-#     #     time.sleep(1)
-#     #     break
-
+    # if (pygame.sprite.groupcollide(bird_group, ground_group, False, False, pygame.sprite.collide_mask) or
+    #         pygame.sprite.groupcollide(bird_group, pipe_group, False, False, pygame.sprite.collide_mask)):
+    #     pygame.mixer.music.load(hit)
+    #     pygame.mixer.music.play()
+    #     time.sleep(1)
+    #     break
